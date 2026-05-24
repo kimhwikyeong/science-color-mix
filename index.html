@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>꼬마 과학 예술가 - 빛의 아틀리에</title>
+    <!-- CDN 라이브러리 -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
+        body { font-family: 'Gaegu', cursive; background-color: #F8F7FF; overflow-x: hidden; }
+        .lens-area { cursor: none; }
+        .magnifier {
+            pointer-events: none;
+            position: absolute;
+            border: 8px solid #FFD700;
+            border-radius: 50%;
+            box-shadow: 0 0 40px rgba(124, 58, 237, 0.3);
+            overflow: hidden;
+            z-index: 50;
+            width: 260px;
+            height: 260px;
+            background-color: #FFFFFF;
+        }
+        .certificate-card {
+            background: linear-gradient(135deg, #f5f3ff 0%, #ddd6fe 100%);
+            border: 12px double #7c3aed;
+            width: 700px; 
+        }
+        input, textarea { font-family: sans-serif; }
+
+        .custom-scroll::-webkit-scrollbar { width: 10px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #F5F3FF; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #A78BFA; border-radius: 10px; border: 2px solid #F5F3FF; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #7C3AED; }
+        
+        .art-frame {
+            border: 16px solid #D97706;
+            border-image: linear-gradient(to bottom right, #B45309, #FBBF24, #B45309) 1;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect, useMemo } = React;
+
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbweEoDZDPskQadCh3kCvwNkyKajCuthbyB-1BcWBAVTP5pfw4qezRBHd0qcsVeOrt9vLQ/exec";
+
+        const Icon = ({ name, color = "currentColor", size = 24, className = "" }) => {
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} className={className} style={{ width: size, height: size, color: color }}></i>;
+        };
+
+        const QUIZ_DATA = [
+            { q: "빛의 3원색은 빨간색, 노란색, 파란색이다.", a: "X", exp: "빛의 3원색은 빨강(Red), 초록(Green), 파랑(Blue)입니다. 노란색은 빨간색과 초록색 빛을 섞었을 때 나옵니다." },
+            { q: "빛의 3원색을 모두 합치면 흰색이 된다.", a: "O", exp: "빛은 섞을수록 밝아지며, 3원색을 모두 같은 세기로 섞으면 흰색(백색광)이 됩니다." },
+            { q: "파란색 빛과 초록색 빛을 합치면 청록색(Cyan) 빛이 된다.", a: "O", exp: "초록색(G)과 파랑(B)을 섞으면 밝은 청록색(Cyan)이 됩니다." },
+            { q: "빨간색 빛과 파란색 빛을 합치면 자홍색(Magenta) 빛이 된다.", a: "O", exp: "빨강(R)과 파랑(B)을 섞으면 진한 분홍빛인 자홍색(Magenta)이 됩니다." },
+            { q: "노란색 빛과 파란색 빛을 합치면 백색광이 된다.", a: "O", exp: "노란색은 빨강+초록이므로, 여기에 파랑을 더하면 빨강+초록+파랑이 되어 흰색이 됩니다." },
+            { q: "백색광은 여러 가지 색의 빛이 섞여 있는 것이다.", a: "O", exp: "태양광이나 형광등 같은 흰색 빛은 프리즘을 통해 보면 무지개처럼 여러 색이 섞여 있음을 알 수 있습니다." },
+            { q: "스마트폰 화면은 빛의 3원색을 이용하여 다양한 색을 만든다.", a: "O", exp: "디지털 화면의 화소(Pixel)는 아주 작은 빨강, 초록, 파랑 점들로 이루어져 있습니다." },
+            { q: "자홍색(Magenta) 빛에 초록색 빛을 더하면 흰색이 된다.", a: "O", exp: "자홍색은 빨강+파랑이므로, 초록을 더하면 3원색이 모두 모여 흰색이 됩니다." },
+            { q: "빛은 섞을수록 밝아진다.", a: "O", exp: "빛은 섞을수록 밝아집니다." },
+            { q: "빨간색 사과는 백색광에서 빨간색 빛만 반사하고 나머지는 흡수한다.", a: "O", exp: "물체의 색은 그 물체가 '반사'하여 우리 눈에 들어오는 빛의 색입니다." },
+            { q: "하얀색 종이는 모든 색의 빛을 흡수한다.", a: "X", exp: "하얀색은 모든 색의 빛을 반사하기 때문에 우리 눈에 하얗게 보입니다. 흡수하면 검게 보입니다." },
+            { q: "검은색 옷은 모든 색의 빛을 반사하여 검게 보인다.", a: "X", exp: "검은색은 모든 빛을 흡수하고 반사하지 않기 때문에 어둡게 보입니다." },
+            { q: "노란색 바나나에 파란색 빛을 비추면 검게 보인다.", a: "O", exp: "노란 바나나는 빨강/초록 빛만 반사합니다. 파란 빛만 비추면 반사할 빛이 없어 검게 보입니다." },
+            { q: "파란색 셀로판지는 파란색 빛만 통과시킨다.", a: "O", exp: "투명한 필터는 자신의 색과 같은 빛만 통과시키고 나머지는 흡수합니다." },
+            { q: "빨간색 장미를 초록색 필터로 보면 빨갛게 보인다.", a: "X", exp: "장미가 반사한 빨간 빛을 초록색 필터가 통과시키지 못하므로 검게 보입니다." },
+            { q: "노란색 필터는 빨간색 빛과 초록색 필터를 모두 통과시킨다.", a: "O", exp: "노란색 필터는 빨강과 초록 빛을 모두 통과시켜 두 빛이 섞인 노란색으로 보이게 합니다." },
+            { q: "파란색 물체를 빨간색 빛 아래에서 보면 보라색으로 보인다.", a: "X", exp: "파란 물체는 빨간 빛을 흡수하므로 반사할 빛이 없어 검게 보입니다." },
+            { q: "청록색(Cyan) 물체는 빨간색 빛을 흡수한다.", a: "O", exp: "청록색 물체는 초록과 파랑만 반사하고, 빨간 빛은 흡수합니다." },
+            { q: "자홍색(Magenta) 필터를 통해 초록색 나뭇잎을 보면 검게 보인다.", a: "O", exp: "나뭇잎은 초록색만 반사하는데, 자홍색 필터는 빨강/파랑만 통과시키므로 초록색을 막아버립니다." },
+            { q: "물체 뒤에 생기는 그림자는 항상 검은색이다.", a: "X", exp: "광원이 여러 개이고 각각 색이 다르면 그림자에 다른 빛이 도달해 유색 그림자가 생길 수 있습니다." },
+            { q: "빨간, 파란 조명을 켤 때 빨간 조명에 의해 생긴 그림자는 파랗게 보인다.", a: "O", exp: "빨간 조명이 가려진 부분(그림자)에는 파란 조명의 빛만 도달하기 때문입니다." },
+            { q: "빨간색 빛 하나만 비출 때 생기는 그림자는 청록색이다.", a: "X", exp: "광원이 하나면 그림자에는 빛이 아예 도달하지 않아 검은색이 됩니다." },
+            { q: "초록, 파란 빛을 켤 때 초록 빛이 가려진 부분의 그림자는 파란색이다.", a: "O", exp: "초록 빛이 도달하지 못하는 곳에 파란 빛이 대신 도달하기 때문입니다." },
+            { q: "물체가 빛을 통과시키지 못할 때 그 뒤에 그림자가 생긴다.", a: "O", exp: "빛이 불투명한 물체에 막혀 도달하지 못하는 영역이 바로 그림자입니다." },
+            { q: "광원이 여러 개이면 그림자도 여러 개가 생길 수 있다.", a: "O", exp: "각 광원의 위치에 따라 물체의 그림자가 서로 다른 방향으로 생기게 됩니다." },
+            { q: "빛이 직진하는 성질 때문에 그림자가 생긴다.", a: "O", exp: "빛이 굽어가지 않고 똑바로 가기 때문에 물체에 막히면 그 뒤에 어두운 공간이 생깁니다." },
+            { q: "빨간, 초록 빛을 비출 때 두 빛이 모두 도달하지 못한 그림자는 노란색이다.", a: "X", exp: "두 빛이 모두 도달하지 못하면 아무런 빛이 없는 것이므로 검은색입니다." },
+            { q: "자홍색(Magenta) 빛 하나만 비출 때 생기는 그림자는 초록색이다.", a: "X", exp: "자홍색 빛 하나뿐이라면, 빛이 가려진 곳은 아무 빛도 없어 검게 보입니다." }
+        ];
+
+        const COLORS = {
+            RED: "#FF0000", GREEN: "#00FF00", BLUE: "#0000FF",
+            CYAN: "#00FFFF", MAGENTA: "#FF00FF", YELLOW: "#FFFF00",
+            BLACK: "#000000", WHITE: "#FFFFFF"
+        };
+
+        const ObservationItems = () => (
+            <div className="absolute inset-0 flex flex-wrap items-center justify-around p-12 bg-white">
+                <div className="flex flex-col items-center"><div className="w-24 h-24 shadow-xl rounded-full" style={{ backgroundColor: COLORS.RED }}></div><span className="mt-2 font-bold text-gray-400 text-xl">Red</span></div>
+                <div className="flex flex-col items-center"><div className="w-24 h-24 shadow-xl" style={{ backgroundColor: COLORS.GREEN, clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }}></div><span className="mt-2 font-bold text-gray-400 text-xl">Green</span></div>
+                <div className="flex flex-col items-center"><div className="w-24 h-24 shadow-xl rounded-lg" style={{ backgroundColor: COLORS.BLUE }}></div><span className="mt-2 font-bold text-gray-400 text-xl">Blue</span></div>
+                <div className="flex flex-col items-center"><div className="w-24 h-24 shadow-xl rounded-full" style={{ backgroundColor: COLORS.CYAN }}></div><span className="mt-2 font-bold text-gray-400 text-xl">Cyan</span></div>
+                <div className="flex flex-col items-center"><div className="w-24 h-24 shadow-xl" style={{ backgroundColor: COLORS.MAGENTA, clipPath: 'polygon(25% 0%, 100% 0%, 75% 100%, 0% 100%)' }}></div><span className="mt-2 font-bold text-gray-400 text-xl">Magenta</span></div>
+                <div className="flex flex-col items-center"><div className="w-24 h-24 shadow-xl rounded-full" style={{ backgroundColor: COLORS.YELLOW }}></div><span className="mt-2 font-bold text-gray-400 text-xl">Yellow</span></div>
+                <div className="w-full text-center mt-12"><p className="text-7xl font-black tracking-[2rem] opacity-5 select-none font-sans italic">ART GALLERY</p></div>
+            </div>
+        );
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('light');
+            const [isReportOpen, setIsReportOpen] = useState(false);
+
+            return (
+                <div className="min-h-screen flex flex-col items-center p-4">
+                    <header className="w-full max-w-5xl bg-gradient-to-r from-[#7c3aed] to-[#a78bfa] text-white rounded-3xl p-6 mb-6 shadow-2xl flex flex-col md:flex-row justify-between items-center gap-4 border-b-8 border-[#5b21b6]">
+                        <div className="flex items-center gap-3">
+                            <Icon name="palette" color="#FFD700" size={40} />
+                            <h1 className="text-4xl font-bold tracking-tighter">꼬마 과학 예술가</h1>
+                        </div>
+                        <div className="flex items-center gap-4 font-bold">
+                            <div className="flex bg-[#5b21b6] rounded-2xl p-1.5 shadow-inner">
+                                <button onClick={() => setActiveTab('light')} className={`px-6 py-2.5 rounded-xl text-xl transition-all ${activeTab === 'light' ? 'bg-white text-[#7c3aed] shadow-lg' : 'text-purple-200'}`}>1. 빛의 아틀리에</button>
+                                <button onClick={() => setActiveTab('filter')} className={`px-6 py-2.5 rounded-xl text-xl transition-all ${activeTab === 'filter' ? 'bg-white text-[#7c3aed] shadow-lg' : 'text-purple-200'}`}>2. 색채 마법</button>
+                            </div>
+                            <button onClick={() => setIsReportOpen(true)} className="bg-[#fbbf24] hover:bg-[#f59e0b] text-[#78350f] px-6 py-2.5 rounded-2xl font-bold flex items-center gap-2 shadow-xl transition-all active:scale-95 text-xl">
+                                <Icon name="brush" size={24} /> 예술가 보고서
+                            </button>
+                        </div>
+                    </header>
+                    <main className="w-full max-w-5xl">
+                        {activeTab === 'light' ? <LightMixingRoom /> : <SecretFilterRoom />}
+                    </main>
+                    {isReportOpen && <ReportModal onClose={() => setIsReportOpen(false)} />}
+                </div>
+            );
+        };
+
+        const LightMixingRoom = () => {
+            const [placedLights, setPlacedLights] = useState({ left: null, center: null, right: null });
+            const [lightStatus, setLightStatus] = useState({ red: false, green: false, blue: false, yellow: false, cyan: false, magenta: false, white: false });
+            const [objPos, setObjPos] = useState({ x: 0 });
+
+            // 색상별 RGB 컴포넌트 정의
+            const getRGB = (colorName) => {
+                const map = {
+                    red: [255, 0, 0], green: [0, 255, 0], blue: [0, 0, 255],
+                    yellow: [255, 255, 0], cyan: [0, 255, 255], magenta: [255, 0, 255],
+                    white: [255, 255, 255]
+                };
+                return map[colorName] || [0, 0, 0];
+            };
+
+            // 활성화된 모든 빛의 합 (배경색)
+            const mixAllLights = (excludeZone = null) => {
+                let r = 0, g = 0, b = 0;
+                Object.entries(placedLights).forEach(([zone, color]) => {
+                    if (color && lightStatus[color] && zone !== excludeZone) {
+                        const [cr, cg, cb] = getRGB(color);
+                        r += cr; g += cg; b += cb;
+                    }
+                });
+                return `rgb(${Math.min(r, 255)}, ${Math.min(g, 255)}, ${Math.min(b, 255)})`;
+            };
+
+            const stageBg = mixAllLights();
+
+            return (
+                <div className="bg-white rounded-[3rem] p-8 shadow-xl border-4 border-purple-100">
+                    <h2 className="text-3xl font-bold text-purple-800 mb-2 italic"><Icon name="wand-2" className="inline mr-2" /> 빛의 캔버스</h2>
+                    <p className="text-purple-400 mb-6 ml-10">조명을 배치하고 별을 움직여 색 그림자를 만들어보세요!</p>
+                    
+                    <div className="relative h-[500px] rounded-[2rem] mb-8 art-frame overflow-hidden flex flex-col justify-between items-center bg-[#1a1a1a] transition-colors duration-500" style={{ backgroundColor: stageBg }}>
+                        {/* 조명 설치 구역 */}
+                        <div className="w-full flex justify-between px-12 pt-8 z-20">
+                            {['left', 'center', 'right'].map(zone => (
+                                <div key={zone} onDragOver={e => e.preventDefault()} onDrop={e => {
+                                    const color = e.dataTransfer.getData("color");
+                                    setPlacedLights(prev => {
+                                        const next = { ...prev };
+                                        Object.keys(next).forEach(k => { if(next[k] === color) next[k] = null; });
+                                        next[zone] = color; return next;
+                                    });
+                                }} className={`w-32 h-32 border-4 border-dashed rounded-full flex items-center justify-center transition-all ${placedLights[zone] ? 'border-transparent scale-110' : 'border-white/20 text-white/30 text-xl font-bold uppercase'}`}>
+                                    {placedLights[zone] ? (
+                                        <button onClick={() => setLightStatus(p => ({...p, [placedLights[zone]]: !p[placedLights[zone]]}))} 
+                                                className={`p-7 rounded-full shadow-2xl transition-all ${lightStatus[placedLights[zone]] ? 'ring-8 ring-white/50' : 'opacity-30 grayscale'}`} 
+                                                style={{backgroundColor: COLORS[placedLights[zone].toUpperCase()]}}>
+                                            <Icon name="sparkles" color={placedLights[zone] === 'white' ? '#7c3aed' : 'white'} size={36} />
+                                        </button>
+                                    ) : zone}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* 별 오브젝트와 과학적 색 그림자 */}
+                        <div className="relative mb-24 touch-none" style={{ transform: `translateX(${objPos.x}px)` }}>
+                            {/* 그림자 로직: 특정 조명을 제외한 나머지 빛들의 합이 그 조명의 그림자 색이 됨 */}
+                            {Object.entries(placedLights).map(([zone, color]) => {
+                                if (!color || !lightStatus[color]) return null;
+                                const offset = zone === 'left' ? 60 : zone === 'right' ? -60 : 0;
+                                const shadowColor = mixAllLights(zone); // 현재 조명을 제외한 나머지 빛의 혼합
+                                return (
+                                    <div key={zone} className="absolute inset-0 transition-all duration-300 blur-[8px]"
+                                         style={{ 
+                                             transform: `translate(${offset}px, 15px) scale(1.05)`, 
+                                             color: shadowColor,
+                                             opacity: stageBg === 'rgb(0, 0, 0)' ? 0 : 0.8
+                                         }}>
+                                        <Icon name="star" size={160} />
+                                    </div>
+                                );
+                            })}
+                            
+                            {/* 메인 오브젝트 (드래그 가능) */}
+                            <div className="relative z-10 cursor-grab active:cursor-grabbing pointer-events-auto" onMouseDown={(e) => {
+                                const sX = e.clientX - objPos.x;
+                                const move = (me) => setObjPos({ x: me.clientX - sX });
+                                const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+                                document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+                            }}>
+                                <Icon name="star" size={160} color={stageBg === 'rgb(0, 0, 0)' ? '#333' : '#222'} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 손전등 선택창 (7개) */}
+                    <div className="grid grid-cols-4 md:grid-cols-7 gap-4 p-8 bg-purple-50 rounded-[2rem] border-4 border-purple-100">
+                        {['red', 'green', 'blue', 'yellow', 'cyan', 'magenta', 'white'].map(color => (
+                            <div key={color} 
+                                 draggable={!Object.values(placedLights).includes(color)}
+                                 onDragStart={e => e.dataTransfer.setData("color", color)} 
+                                 className={`p-4 rounded-2xl shadow-xl flex flex-col items-center transition-all ${Object.values(placedLights).includes(color) ? 'opacity-20 grayscale cursor-not-allowed' : 'cursor-grab hover:-translate-y-2 bg-white'}`} 
+                                 style={{ backgroundColor: Object.values(placedLights).includes(color) ? '#ccc' : COLORS[color.toUpperCase()] }}>
+                                <Icon name="flashlight" color={color === 'white' ? '#7c3aed' : 'white'} size={40} />
+                                <p className={`font-bold mt-2 uppercase text-lg ${color === 'white' ? 'text-purple-600' : 'text-white'}`}>
+                                    {color === 'red' ? '빨강' : color === 'green' ? '초록' : color === 'blue' ? '파랑' : color === 'yellow' ? '노랑' : color === 'cyan' ? '청록' : color === 'magenta' ? '자홍' : '흰색'}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const SecretFilterRoom = () => {
+            const [filterColor, setFilterColor] = useState(COLORS.RED);
+            const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
+            const containerRef = useRef(null);
+            const filters = [
+                { name: '빨강', color: COLORS.RED }, { name: '초록', color: COLORS.GREEN }, { name: '파랑', color: COLORS.BLUE },
+                { name: '청록', color: COLORS.CYAN }, { name: '자홍', color: COLORS.MAGENTA }, { name: '노랑', color: COLORS.YELLOW }
+            ];
+            return (
+                <div className="bg-white rounded-[3rem] p-8 shadow-xl border-4 border-purple-100">
+                    <h2 className="text-3xl font-bold text-purple-800 mb-6 italic"><Icon name="eye" className="inline mr-2" /> 색채 마법 뷰파인더</h2>
+                    <div ref={containerRef} onMouseMove={e => {
+                        const r = containerRef.current.getBoundingClientRect();
+                        setMousePos({ x: e.clientX - r.left, y: e.clientY - r.top });
+                    }} onMouseLeave={() => setMousePos({x:-1000, y:-1000})}
+                         className="relative h-[450px] bg-white border-4 border-dashed border-purple-200 rounded-[2rem] overflow-hidden mb-8 shadow-inner">
+                        <ObservationItems />
+                        <div className="magnifier" style={{ left: mousePos.x - 130, top: mousePos.y - 130 }}>
+                            <div className="absolute inset-0 z-20" style={{ backgroundColor: filterColor, mixBlendMode: 'multiply', opacity: 1.0 }}></div>
+                            <div className="absolute top-0 left-0" style={{ width: containerRef.current?.offsetWidth || 1000, height: 450, transform: `translate(${- (mousePos.x - 130)}px, ${- (mousePos.y - 130)}px)` }}><ObservationItems /></div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-6">
+                        {filters.map(f => (
+                            <button key={f.name} onClick={() => setFilterColor(f.color)} className={`flex flex-col items-center p-5 rounded-2xl border-4 transition-all ${filterColor === f.color ? 'border-purple-600 bg-purple-50 scale-95 shadow-inner' : 'border-gray-50 hover:border-purple-200'}`}><div className="w-12 h-12 rounded-full mb-3 shadow-xl" style={{backgroundColor: f.color}}></div><span className="font-bold text-xl">{f.name}</span></button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const ReportModal = ({ onClose }) => {
+            const [step, setStep] = useState(1); 
+            const [resultTab, setResultTab] = useState('cert'); 
+            const [form, setForm] = useState({ id: '', name: '', learned: '' });
+            const [quizAnswers, setQuizAnswers] = useState({});
+            const [score, setScore] = useState(0);
+            const certRef = useRef(null);
+
+            const selectedQuiz = useMemo(() => [...QUIZ_DATA].sort(() => Math.random() - 0.5).slice(0, 5), [step === 1]);
+
+            const handleQuizSubmit = () => {
+                let count = 0;
+                selectedQuiz.forEach((q, i) => { if (quizAnswers[i] === q.a) count++; });
+                setScore(count);
+                setStep(3); // 화면은 즉시 결과창으로 넘어갑니다.
+
+                // GAS 서버로 데이터 백그라운드 전송
+                try {
+                    const payload = {
+                        studentId: form.id,
+                        name: form.name,
+                        learned: form.learned,
+                        quizScore: count + "/5"
+                    };
+
+                    fetch(GAS_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "text/plain" },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => res.json())
+                    .then(data => console.log("구글 시트 저장 성공:", data))
+                    .catch(err => console.error("구글 시트 저장 실패:", err));
+                } catch (error) {
+                    console.error("전송 중 에러 발생:", error);
+                }
+            };
+
+            const downloadCert = async () => {
+                const canvas = await html2canvas(certRef.current, { scale: 2 });
+                const link = document.createElement('a');
+                link.download = `빛의예술가자격증_${form.name}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            };
+
+            return (
+                <div className="fixed inset-0 bg-[#2D1B69]/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                    <div className={`bg-[#FDFCF0] w-full ${step === 3 && score >= 3 ? 'max-w-4xl' : 'max-w-2xl'} rounded-[3rem] shadow-2xl border-[12px] border-[#7c3aed] relative flex flex-col max-h-[90vh]`}>
+                        <button onClick={onClose} className="absolute top-6 right-8 text-[#7c3aed] hover:text-red-500 transition-colors z-[110]"><Icon name="x-circle" size={40}/></button>
+
+                        <div className="p-8 md:p-10 overflow-y-auto custom-scroll w-full">
+                            {step === 1 && (
+                                <div className="space-y-8">
+                                    <h3 className="text-4xl font-black text-[#7c3aed] text-center italic underline tracking-tight">예술가 보고서</h3>
+                                    <div className="grid grid-cols-2 gap-6 font-bold">
+                                        <div className="space-y-2">
+                                            <label className="ml-2 text-purple-900 italic">아티스트 번호 (학번)</label>
+                                            <input type="text" placeholder="예: 10201" value={form.id} onChange={e=>setForm({...form, id: e.target.value})} className="w-full p-5 rounded-2xl border-4 border-purple-100 outline-none focus:border-purple-500 shadow-inner"/>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="ml-2 text-purple-900 italic">작가 성함 (이름)</label>
+                                            <input type="text" placeholder="예: 홍길동" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-5 rounded-2xl border-4 border-purple-100 outline-none focus:border-purple-500 shadow-inner"/>
+                                        </div>
+                                    </div>
+                                    <textarea placeholder="빛의 실험을 통해 새롭게 알게 된 사실은 무엇인가요?" value={form.learned} onChange={e=>setForm({...form, learned: e.target.value})} className="w-full p-6 rounded-2xl border-4 border-purple-100 h-40 resize-none outline-none font-bold shadow-inner focus:border-purple-500"></textarea>
+                                    <button onClick={()=> (form.id && form.name) ? setStep(2) : alert("정보를 입력하세요!")} className="w-full bg-[#7c3aed] text-white py-6 rounded-[2rem] font-bold text-3xl shadow-2xl hover:bg-[#5b21b6]">예술가 자격 테스트 시작</button>
+                                </div>
+                            )}
+
+                            {step === 2 && (
+                                <div className="space-y-6">
+                                    <h3 className="text-3xl font-bold text-center text-purple-900 italic underline mb-4 tracking-tight sticky top-0 bg-[#FDFCF0] py-2 z-10">색채 감각 테스트 (3문제 이상 통과)</h3>
+                                    <div className="space-y-6">
+                                        {selectedQuiz.map((q, idx) => (
+                                            <div key={idx} className="bg-white p-6 rounded-3xl border-4 border-purple-50 shadow-sm">
+                                                <p className="text-2xl font-bold mb-5 text-[#3E2723]">{idx+1}. {q.q}</p>
+                                                <div className="flex gap-6">
+                                                    {['O', 'X'].map(opt => (
+                                                        <button key={opt} onClick={()=>setQuizAnswers({...quizAnswers, [idx]: opt})} className={`flex-1 py-5 rounded-2xl font-black text-4xl transition-all ${quizAnswers[idx] === opt ? 'bg-purple-500 text-white shadow-inner scale-95' : 'bg-gray-100 text-gray-300'}`}>{opt}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button onClick={handleQuizSubmit} className="w-full bg-emerald-600 text-white py-6 rounded-[2rem] font-bold text-3xl shadow-2xl mt-8 sticky bottom-0">결과 발표</button>
+                                </div>
+                            )}
+
+                            {step === 3 && (
+                                <div className="flex flex-col items-center gap-6">
+                                    {score >= 3 ? (
+                                        <>
+                                            <div className="flex bg-purple-100 p-2 rounded-2xl w-full max-w-md shadow-inner">
+                                                <button onClick={() => setResultTab('cert')} className={`flex-1 py-3 rounded-xl font-bold text-xl transition-all ${resultTab === 'cert' ? 'bg-purple-600 text-white shadow-lg' : 'text-purple-800'}`}>자격증 발급</button>
+                                                <button onClick={() => setResultTab('review')} className={`flex-1 py-3 rounded-xl font-bold text-xl transition-all ${resultTab === 'review' ? 'bg-purple-600 text-white shadow-lg' : 'text-purple-800'}`}>도슨트 해설</button>
+                                            </div>
+
+                                            {resultTab === 'cert' ? (
+                                                <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-300">
+                                                    <h4 className="text-4xl font-black text-purple-600 italic tracking-tight text-center">축하합니다! 빛의 예술가로 임명되었습니다.</h4>
+                                                    <div ref={certRef} className="certificate-card p-3 rounded-2xl shadow-2xl shrink-0">
+                                                        <div className="border-[6px] border-[#7c3aed] p-10 bg-white/95 text-center relative overflow-hidden h-[550px] flex flex-col justify-between">
+                                                            <div className="absolute -top-10 -right-10 p-8 opacity-10 rotate-12"><Icon name="palette" size={300}/></div>
+                                                            <h2 className="text-6xl font-black text-[#5b21b6] italic tracking-tighter mb-4 underline decoration-yellow-400 font-sans">빛의 예술가 자격증</h2>
+                                                            <div className="flex justify-center gap-14 items-center">
+                                                                <div className="w-48 h-60 bg-purple-50 border-8 border-[#7c3aed] overflow-hidden flex flex-col items-center justify-center shadow-2xl relative transform rotate-1">
+                                                                    <Icon name="palette" size={100} color="#7c3aed" />
+                                                                    <p className="text-[#7c3aed] font-bold mt-2">ARTIST</p>
+                                                                </div>
+                                                                <div className="text-left space-y-6">
+                                                                    <p className="text-4xl font-bold border-b-4 border-yellow-200 pb-2">작 가 명 : <span className="text-purple-900 ml-4 font-black">{form.name}</span></p>
+                                                                    <p className="text-4xl font-bold border-b-4 border-yellow-200 pb-2">번 호 : <span className="text-purple-900 ml-4 font-black"># {form.id}</span></p>
+                                                                    <p className="text-4xl font-bold border-b-4 border-yellow-200 pb-2">점 수 : <span className="text-purple-900 ml-4 font-black">{score} / 5 점</span></p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="italic text-2xl text-purple-800 font-bold mt-8 leading-relaxed">위 사람은 빛의 혼합과 색채의 과학적 원리를 훌륭히 마스터하여<br/>아름다운 세상을 만드는 '빛의 예술가' 자격을 획득하였습니다.</div>
+                                                            <div className="flex justify-between items-end mt-10 font-bold">
+                                                                <div className="text-purple-300 italic">{new Date().toLocaleDateString()}</div>
+                                                                <div className="flex flex-col items-center">
+                                                                    <div className="w-24 h-24 border-8 border-red-500 rounded-full flex items-center justify-center text-red-600 font-black -rotate-12 text-2xl shadow-lg">인증됨</div>
+                                                                    <p className="text-xl mt-2 italic underline decoration-purple-500">빛의 과학 미술관 본부</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={downloadCert} className="bg-blue-600 text-white px-12 py-5 rounded-xl font-bold text-2xl shadow-lg hover:bg-blue-700 flex items-center gap-2 transition-all active:scale-95">
+                                                        <Icon name="download" size={28}/> 자격증 저장하기
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="w-full space-y-6 animate-in fade-in slide-in-from-right duration-300">
+                                                    <h4 className="text-3xl font-black text-purple-800 mb-4">색채학 도슨트 해설</h4>
+                                                    <div className="space-y-4">
+                                                        {selectedQuiz.map((q, idx) => {
+                                                            const isCorrect = quizAnswers[idx] === q.a;
+                                                            return (
+                                                                <div key={idx} className={`p-6 rounded-2xl border-4 ${isCorrect ? 'border-green-100 bg-green-50' : 'border-red-100 bg-red-50'}`}>
+                                                                    <div className="flex items-start gap-4">
+                                                                        <div className={`p-2 rounded-full ${isCorrect ? 'bg-green-500' : 'bg-red-500'} text-white shrink-0`}><Icon name={isCorrect ? "check" : "x"} size={24} /></div>
+                                                                        <div className="space-y-2">
+                                                                            <p className="text-xl font-bold text-gray-800">{idx+1}. {q.q}</p>
+                                                                            <div className="bg-white/60 p-4 rounded-xl text-lg text-gray-700 leading-relaxed font-sans">
+                                                                                <span className="font-bold text-purple-800">[도슨트의 한마디]</span> {q.exp}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="text-center py-10 space-y-8 bg-purple-50 rounded-[3rem] p-10 w-full border-4 border-purple-200 shadow-inner shrink-0">
+                                            <Icon name="palette" size={120} className="mx-auto text-purple-200" />
+                                            <h4 className="text-5xl font-black text-purple-600 italic tracking-tight">"창의적 탐색 부족"</h4>
+                                            <p className="text-2xl font-bold text-gray-700">빛의 아틀리에에서 원리를 조금 더 연구해볼까요? (점수: {score}/5)</p>
+                                            <button onClick={()=>{ setStep(1); setQuizAnswers({}); setResultTab('cert'); }} className="bg-purple-500 text-white px-12 py-5 rounded-3xl font-black text-3xl shadow-2xl hover:bg-purple-600 active:scale-95 transition-transform">다시 도전하기</button>
+                                        </div>
+                                    )}
+                                    <button onClick={onClose} className="text-gray-400 font-bold hover:text-purple-800 underline italic mt-4 text-xl">창 닫기</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
